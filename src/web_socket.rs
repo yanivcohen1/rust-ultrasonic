@@ -31,7 +31,7 @@ use statics::{LED, DISPLAY, IP, WS};
 
 const SSID: &str = env!("WIFI_SSID");
 const PASSWORD: &str = env!("WIFI_PASS");
-static INDEX_HTML: &str = include_str!("ws_guessing_game.html");
+static INDEX_HTML: &str = include_str!("www/ws_guessing_game.html");
 
 // Max payload length
 const MAX_LEN: usize = 8;

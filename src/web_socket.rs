@@ -116,58 +116,56 @@ pub fn main_ws(modem: Modem , tx: SyncSender<(String, String)>) -> anyhow::Resul
             // may only be called with an empty buffer exactly once to receive the
             // incoming buffer size, then must be called exactly once to receive the
             // actual payload.
-            //critical_section::with(|cs| WS.borrow_ref_mut(cs).replace(
-                //statics::NoSendStruct { ptr: ws }));
     
-                let (_frame_type, len) = match ws.recv(&mut []) {
-                    Ok(frame) => frame,
-                    Err(e) => return Err(e),
-                }; 
-                
-                if len > MAX_LEN {
-                    ws.send(FrameType::Text(false), "Request too big".as_bytes())?;
-                    ws.send(FrameType::Close, &[])?;
-                    return Err(EspError::from_infallible::<ESP_ERR_INVALID_SIZE>());
-                }
-    
-                let mut buf = [0; MAX_LEN]; // Small digit buffer can go on the stack
-                ws.recv(buf.as_mut())?;
-                let Ok(user_string) = str::from_utf8(&buf[..len]) else {
-                    ws.send(FrameType::Text(false), "[UTF-8 Error]".as_bytes())?;
-                    return Ok(());
-                };
-
+            let (_frame_type, len) = match ws.recv(&mut []) {
+                Ok(frame) => frame,
+                Err(e) => return Err(e),
+            }; 
             
+            if len > MAX_LEN {
+                ws.send(FrameType::Text(false), "Request too big".as_bytes())?;
+                ws.send(FrameType::Close, &[])?;
+                return Err(EspError::from_infallible::<ESP_ERR_INVALID_SIZE>());
+            }
 
-                let Some(user_guess) = GuessingGame::parse_guess(user_string) else {
-                    ws.send(FrameType::Text(false), "Please enter a number between 1 and 100".as_bytes())?;
-                    return Ok(());
-                };
+            let mut buf = [0; MAX_LEN]; // Small digit buffer can go on the stack
+            ws.recv(buf.as_mut())?;
+            let Ok(user_string) = str::from_utf8(&buf[..len]) else {
+                ws.send(FrameType::Text(false), "[UTF-8 Error]".as_bytes())?;
+                return Ok(());
+            };
 
-                let mut msg = "".to_owned();
-                match session.guess(user_guess) {
-                    (Ordering::Greater, n) => {
-                        let reply = format!("Your {} guess was too high", nth(n));
-                        ws.send(FrameType::Text(false), reply.as_ref())?;
-                        *&mut msg = "guess too high".to_owned();
-                    }
-                    (Ordering::Less, n) => {
-                        let reply = format!("Your {} guess was too low", nth(n));
-                        ws.send(FrameType::Text(false), reply.as_ref())?;
-                        *&mut msg = "guess too low".to_owned();
-                    }
-                    (Ordering::Equal, n) => {
-                        let reply = format!(
-                            "You guessed {} on your {} try! Refresh to play again",
-                            session.secret,
-                            nth(n)
-                        );
-                        ws.send(FrameType::Text(false), reply.as_ref())?;
-                        ws.send(FrameType::Close, &[])?;
-                        *&mut msg = "guess is correct!!".to_owned();
-                    }
+        
+
+            let Some(user_guess) = GuessingGame::parse_guess(user_string) else {
+                ws.send(FrameType::Text(false), "Please enter a number between 1 and 100".as_bytes())?;
+                return Ok(());
+            };
+
+            let mut msg = "".to_owned();
+            match session.guess(user_guess) {
+                (Ordering::Greater, n) => {
+                    let reply = format!("Your {} guess was too high", nth(n));
+                    ws.send(FrameType::Text(false), reply.as_ref())?;
+                    *&mut msg = "guess too high".to_owned();
                 }
-                
+                (Ordering::Less, n) => {
+                    let reply = format!("Your {} guess was too low", nth(n));
+                    ws.send(FrameType::Text(false), reply.as_ref())?;
+                    *&mut msg = "guess too low".to_owned();
+                }
+                (Ordering::Equal, n) => {
+                    let reply = format!(
+                        "You guessed {} on your {} try! Refresh to play again",
+                        session.secret,
+                        nth(n)
+                    );
+                    ws.send(FrameType::Text(false), reply.as_ref())?;
+                    ws.send(FrameType::Close, &[])?;
+                    *&mut msg = "guess is correct!!".to_owned();
+                }
+            }
+
             critical_section::with(|cs| {
                 let mut temp = LED.borrow_ref_mut(cs);
                 let mut led = temp.as_mut().unwrap();

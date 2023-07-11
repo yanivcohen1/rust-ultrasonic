@@ -116,32 +116,31 @@ pub fn main_ws(modem: Modem , tx: SyncSender<(String, String)>) -> anyhow::Resul
             // may only be called with an empty buffer exactly once to receive the
             // incoming buffer size, then must be called exactly once to receive the
             // actual payload.
-            critical_section::with(|cs| WS.borrow_ref_mut(cs).replace(
-                statics::NoSendStruct { ptr: ws }));
-            critical_section::with(|cs| Ok({
-                unsafe { 
-                let (_frame_type, len) = match (*WS.borrow_ref_mut(cs).as_mut().unwrap().ptr).recv(&mut []) {
+            //critical_section::with(|cs| WS.borrow_ref_mut(cs).replace(
+                //statics::NoSendStruct { ptr: ws }));
+    
+                let (_frame_type, len) = match ws.recv(&mut []) {
                     Ok(frame) => frame,
                     Err(e) => return Err(e),
                 }; 
                 
                 if len > MAX_LEN {
-                    (*WS.borrow_ref_mut(cs).as_mut().unwrap().ptr).send(FrameType::Text(false), "Request too big".as_bytes())?;
-                    (*WS.borrow_ref_mut(cs).as_mut().unwrap().ptr).send(FrameType::Close, &[])?;
+                    ws.send(FrameType::Text(false), "Request too big".as_bytes())?;
+                    ws.send(FrameType::Close, &[])?;
                     return Err(EspError::from_infallible::<ESP_ERR_INVALID_SIZE>());
                 }
     
                 let mut buf = [0; MAX_LEN]; // Small digit buffer can go on the stack
-                (*WS.borrow_ref_mut(cs).as_mut().unwrap().ptr).recv(buf.as_mut())?;
+                ws.recv(buf.as_mut())?;
                 let Ok(user_string) = str::from_utf8(&buf[..len]) else {
-                    (*WS.borrow_ref_mut(cs).as_mut().unwrap().ptr).send(FrameType::Text(false), "[UTF-8 Error]".as_bytes())?;
+                    ws.send(FrameType::Text(false), "[UTF-8 Error]".as_bytes())?;
                     return Ok(());
                 };
 
             
 
                 let Some(user_guess) = GuessingGame::parse_guess(user_string) else {
-                    (*WS.borrow_ref_mut(cs).as_mut().unwrap().ptr).send(FrameType::Text(false), "Please enter a number between 1 and 100".as_bytes())?;
+                    ws.send(FrameType::Text(false), "Please enter a number between 1 and 100".as_bytes())?;
                     return Ok(());
                 };
 
@@ -149,12 +148,12 @@ pub fn main_ws(modem: Modem , tx: SyncSender<(String, String)>) -> anyhow::Resul
                 match session.guess(user_guess) {
                     (Ordering::Greater, n) => {
                         let reply = format!("Your {} guess was too high", nth(n));
-                        (*WS.borrow_ref_mut(cs).as_mut().unwrap().ptr).send(FrameType::Text(false), reply.as_ref())?;
+                        ws.send(FrameType::Text(false), reply.as_ref())?;
                         *&mut msg = "guess too high".to_owned();
                     }
                     (Ordering::Less, n) => {
                         let reply = format!("Your {} guess was too low", nth(n));
-                        (*WS.borrow_ref_mut(cs).as_mut().unwrap().ptr).send(FrameType::Text(false), reply.as_ref())?;
+                        ws.send(FrameType::Text(false), reply.as_ref())?;
                         *&mut msg = "guess too low".to_owned();
                     }
                     (Ordering::Equal, n) => {
@@ -163,12 +162,13 @@ pub fn main_ws(modem: Modem , tx: SyncSender<(String, String)>) -> anyhow::Resul
                             session.secret,
                             nth(n)
                         );
-                        (*WS.borrow_ref_mut(cs).as_mut().unwrap().ptr).send(FrameType::Text(false), reply.as_ref())?;
-                        (*WS.borrow_ref_mut(cs).as_mut().unwrap().ptr).send(FrameType::Close, &[])?;
+                        ws.send(FrameType::Text(false), reply.as_ref())?;
+                        ws.send(FrameType::Close, &[])?;
                         *&mut msg = "guess is correct!!".to_owned();
                     }
                 }
-            //critical_section::with(|cs| {
+                
+            critical_section::with(|cs| {
                 let mut temp = LED.borrow_ref_mut(cs);
                 let mut led = temp.as_mut().unwrap();
                 if msg.as_str().contains("correct") {
@@ -184,8 +184,7 @@ pub fn main_ws(modem: Modem , tx: SyncSender<(String, String)>) -> anyhow::Resul
                 );
                 // ws Keep server running beyond
                 core::mem::forget(ws);
-            }
-            }));
+            });
             // tx.send((format!("user in: {}", user_guess), msg)).unwrap();
             Ok::<(), EspError>(())
         })

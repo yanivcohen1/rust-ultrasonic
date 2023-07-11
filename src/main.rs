@@ -100,12 +100,12 @@ fn main() -> anyhow::Result<()> {
                     if !WS.borrow_ref_mut(cs).as_mut().is_none() {
                         (*WS.borrow_ref_mut(cs).as_mut().unwrap().ptr).send(FrameType::Text(false), 
                             format!("dis: {}, adc: {}", &distance_leve, &adc_level_i16).as_ref());
-                            lcd_display_1106(
-                                &mut DISPLAY.borrow_ref_mut(cs).as_mut().unwrap(),
-                                format!("dis: {}, adc: {}", &distance_leve, &adc_level_i16).as_str(),
-                                ""
-                            );
                     }
+                    lcd_display_1106(
+                        &mut DISPLAY.borrow_ref_mut(cs).as_mut().unwrap(),
+                        format!("dis: {}, adc: {}", &distance_leve, &adc_level_i16).as_str(),
+                        ""
+                    );
                 }
             });
         }

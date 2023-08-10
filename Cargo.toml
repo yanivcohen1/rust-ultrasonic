@@ -31,8 +31,8 @@ embassy = ["esp-idf-hal?/embassy-sync", "esp-idf-hal?/critical-section", "esp-id
 log = { version = "0.4.17", default-features = false }
 esp-idf-sys = { version = "0.33", default-features = false }
 esp-idf-hal = { version = "0.41", optional = true, default-features = false } # HW
-esp-idf-svc = { git = "https://github.com/esp-rs/esp-idf-svc", branch = "master", optional = true, default-features = true }
-# esp-idf-svc = { version = "0.46", optional = true, default-features = true } # web, wifi
+# esp-idf-svc = { git = "https://github.com/esp-rs/esp-idf-svc", branch = "master", optional = true, default-features = true }
+esp-idf-svc = { version = "0.46", optional = true, default-features = true } # web, wifi
 embedded-svc = { version = "0.25", optional = true, default-features = false }
 anyhow = {version = "1", features = ["backtrace"]}
 # yaniv add
